@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+#
 # REST api for controlling a Yamaha Receiver
 #
 from controller import YamahaController
