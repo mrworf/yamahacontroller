@@ -47,6 +47,6 @@ def api_operation(data):
 
 if __name__ == "__main__":
   yamaha.init()
-  app.debug = True
+  #app.debug = True
   app.run(host=cfg_ServerAddr)
 
