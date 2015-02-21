@@ -75,6 +75,12 @@ class YamahaController:
   def send_op(self, cmd):
     print "Sending " + cmd + " to receiver"
     self.port.write("\x02" + "07" + cmd + "\x03")
+    
+  # Sends a System Command to the receiver
+  # (see 3.1 in RX-V1900 RS-232C Protocol)
+  def send_sys(self, cmd):
+    print "Sending " + cmd + " to receiver"
+    self.port.write("\x02" + "2" + cmd + "\x03")
   
   def read_result(self):
     type = self.port.read(1)

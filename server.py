@@ -45,6 +45,24 @@ def api_operation(data):
   result.status_code = 200
   return result
 
+@app.route("/system/<data>", methods = ["GET"])
+def api_system(data):
+  # Make sure we don't get unneeded data
+  if len(data) != 4:
+    result = jsonify({"status":500,"message":"Command must be exactly 4 bytes"})
+    result.status_code = 500
+    return result
+  
+  yamaha.send_sys(data)
+  
+  result = {
+    'status': 200,
+    'result': yamaha.handleResults()
+  }
+  result = jsonify(result)
+  result.status_code = 200
+  return result
+
 if __name__ == "__main__":
   yamaha.init()
   #app.debug = True
