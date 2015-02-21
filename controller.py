@@ -10,149 +10,258 @@
 # http://download.yamaha.com/api/asset/file/?language=en&site=au.yamaha.com&asset_id=54852
 #
 import serial
+import threading
+import time
 
-class YamahaController:
-  def drain(self):
-    c = 0
-    l = "";
-    while True:
-      a = self.port.read(99)
-      if len(a) > 0:
-        c += len(a)
-        l += repr(a)
+class YamahaController (threading.Thread):
+  serialbuffer = bytes()
+  serialpos = 0
+  ready = False
+  reports = {}
+  config = None
+  model = ""
+  version = ""
+  state = "unknown"
+  powersave = False
+  parsehint = False
+  
+  def parseConfig(self):
+    result = None
+    try:
+      self.model = self.read(5)
+      self.version = self.read(1)
+      llen = self.read(1)
+      hlen = self.read(1)
+      config_len = int(llen + hlen, 16)
+      self.config = self.read(config_len)
+      lsum = self.read(1)
+      hsum = self.read(1)
+      end = self.read(1)
+      if end != '\x03':
+        #print "DEBUG: No end in sight, found " + repr(end) + " as end marker"
+        # We need to discard this in a good way, 
+        # meaning to get rid of the start marker
+        self.reset()
+        self.read()
       else:
-        break
-  
-    print "Drained " + str(c) + " bytes"
-    print "Contents: " + l
-  
-  def is_end(self):
-    a = self.port.read(1)
-    if a != "\x03":
-      return False
-    return True
-  
-  def read_config(self):
-    self.model = self.port.read(5)
-    self.version = self.port.read(1)
-    llen = self.port.read(1)
-    hlen = self.port.read(1)
-    config_len = int(llen + hlen, 16)
-    config = self.port.read(config_len)
-    lsum = self.port.read(1)
-    hsum = self.port.read(1)
-    if not self.is_end():
-      print "Error! No end in sight"
-      self.drain()
-    else:
-      print "   Model ID: " + self.model
-      print " SW Version: " + self.version
-      print "Config data: " + str(config_len) + " bytes"
-      if config[7] == "0":
-        print "System is ready"
-        self.state = "ready"
-      elif config[7] == "1":
-        print "System is busy"
-        self.state = "busy"
-      elif config[7] == "2":
-        print "System is in standby"
-        self.state = "standby"
-      else:
-        print "System is in unknown state"
-        self.state = "unknown"
-      if config_len > 144 and config[144] == "0":
-        print "WARNING! RS-232 cannot wake system"
-        self.state = "error"
-      return True
-  
-  def init_comms(self):
-    self.drain()
+        if self.config[7] == "0":
+          self.state = "ready"
+        elif self.config[7] == "1":
+          self.state = "busy"
+        elif self.config[7] == "2":
+          self.state = "standby"
+        else:
+          self.state = "unknown"
+        if config_len > 144 and self.config[144] == "0":
+          print "WARN: RS-232 cannot wake system"
+          self.state = "error"
+        result = True
+    except YamahaException:
+      self.reset()
+    finally:
+      self.flush()
+      
+    return result
+    
+  def parseReport(self):
+    result = None
+    try:
+      category = self.read(1)
+      guard = self.read(1)
+      cmd = self.read(2)
+      data = self.read(2)
+      a = self.read(1)
+      valid = True
+      if a != "\x03":
+        print "Error: Not a supported report command"
+        valid = False
+      result = {"type": category, "guard": guard, "command": cmd, "data": data, "valid": valid}
+    except:
+      self.reset()
+    finally:
+      self.flush()  
+    return result
+
+  def sendInit(self):
+    #print "DEBUG: Init comms"
     self.port.write("\x11000\x03")
-    return self.handleResults()
 
   # Sends a Operation Command to the receiver
   # (see 3.2 in RX-V1900 RS-232C Protocol)
-  def send_op(self, cmd):
+  def sendOperation(self, cmd):
     print "Sending " + cmd + " to receiver"
-    self.port.write("\x02" + "07" + cmd + "\x03")
+    self.port.write("\x0207" + cmd + "\x03")
+    if self.powersave:
+      self.port.write("\x0207" + cmd + "\x03")
     
   # Sends a System Command to the receiver
   # (see 3.1 in RX-V1900 RS-232C Protocol)
-  def send_sys(self, cmd):
+  def sendSystem(self, cmd):
     print "Sending " + cmd + " to receiver"
-    self.port.write("\x02" + "2" + cmd + "\x03")
-  
-  def read_result(self):
-    type = self.port.read(1)
-    guard = self.port.read(1)
-    cmd = self.port.read(2)
-    result = self.port.read(2)
-    a = self.port.read(1)
-    valid = True
-    if a != "\x03":
-      print "Error: Not a supported report command"
-      valid = False
-    return {"type": type, "guard": guard, "command": cmd, "result": result, "valid": valid}
-  
-  def send_system(self, cmd):
     self.port.write("\x022" + cmd + "\x03")
-    res = self.read_result()
-    print "Result: " + repr(res)
+    if self.powersave:
+      self.port.write("\x022" + cmd + "\x03")
 
   # Reads until all results have been parsed
   #
-  def handleResults(self):
-    results = []
-    
+  def processResults(self):
     while True:
-      data = self.handleResult()
-      if data is None:
+      r = self.parseResult()
+      if r is None:
         break
-      results.append(data)
+      elif r["input"] == "powersave":
+        self.powersave = True
+        continue
+      elif r["input"] == "error":
+        continue;
+      elif r["input"] == "config":
+        self.config = r["data"]
+      elif r["input"] == "result":
+        # Store this in a set since only the latest item is of interest
+        print repr(r)
+        self.reports[r["data"]["command"]] = r["data"]
 
-      # Fast exit, usually more than one result is sent at once
-      # so we can rely on the serial driver. But when executing
-      # a new command, we need to be a bit more patient
-      if not self.port.inWaiting():
-        break
-    return results
+      # If we get here, then powersave state is over-and-done with
+      #self.powersave = False
+    
+    # We now need to take correct action, depending on state
+    if not self.ready:
+      if self.state == "ready" or self.state == "standby" :
+        print "Communication established"
+        self.ready = True
+
+  # Obtains one of the results and if clear is true, will also
+  # erase it from the internal list. If no result can be found,
+  # None is returned (see what I did there... hehe).
+  def getResult(self, result, clear=True, wait=False):
+    while not result in self.reports:
+      if not wait:
+        return None
+      #print "Reports does not contain " + result
+      #print repr(self.reports)
+      time.sleep(0.1) # HORRIBLE!
+    
+    ret = self.reports[result]
+    if clear:
+      self.clearResult(result)
+      
+    return ret
+
+  def getAllResults(self):
+    result = []
+    for report in self.reports:
+      result.append(self.reports[report])
+    return result
+
+  # Removes a result
+  #
+  def clearResult(self, result):
+    if result in self.reports:
+      self.reports.pop(result)
+    
 
   # Reads one result from the buffer
   #
-  def handleResult(self):
-    # Determine the incoming data
-    d = self.port.read(1)
-    if len(d) == 0:
-      return None
-    elif d == '\x12': # DC2
-      print "Found config"
-      return {"input": "config", "data": self.read_config()}
-    elif d == '\x02': # STX
-      print "Found result"
-      return {"input": "result", "data": self.read_result()}
-    else:
-      print "Unexpected data, starts with " + repr(d)
-      self.drain()
-    return {"input":"error"}
-  
+  def parseResult(self):
+    try:
+      category = ""
+      d = self.read(1)
+      if d == '\x12': # DC2
+        self.parsehint = True
+        category = "config"
+        data = self.parseConfig()
+      elif d == '\x02': # STX
+        self.parsehint = True
+        category = "result"
+        data = self.parseReport()
+      elif d == '\x00': # This happens when receiver is OFF and it times out
+        category = "powersave"
+        data = "Powersave, send next command TWICE"
+        self.flush()
+      else:
+        category = "error"
+        data = "Unexpected data"
+        self.flush()
+        #print "DEBUG: Unexpected data, starts with " + repr(d)
+
+      # Only return data if we have some!
+      if data is None:
+        return None
+        
+      # Success! Clear parse hint and carry on
+      self.parsehint = False
+      return {"input" : category, "data" : data} 
+    except:
+      # No data available
+      return None    
+
   # Constructor, we don't do much here
   #
   def __init__(self, serialport):
+    threading.Thread.__init__(self)
+    
     self.serialport = serialport
-    self.port = serial.Serial(serialport, baudrate=9600, timeout=2, rtscts=True)
+    self.port = serial.Serial(serialport, baudrate=9600, timeout=0, rtscts=True, xonxoff=False, dsrdtr=False, stopbits=serial.STOPBITS_ONE, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE)
     self.state = "unknown"
+    self.port.flushInput()
+    self.port.flushOutput()
 
-  # Actual init call
+  # Starts everything
   #
   def init(self):
+    self.daemon = True
+    
     print "Yamaha RX-V - Serial Commander"
     print "Intializing communication on " + self.serialport
-    for i in range(1, 5):
-      self.init_comms()
-      if self.state != "ready" and self.state != "standby" :
-        print "Failed to initialize communication with device, state = " + self.state + " (attempt #" + str(i) + ")"
-        if i == 5:
-          return False
+    self.flush()
+    self.sendInit()
+    self.start()
+    
+  # Serial buffer management, continously read data from serial port
+  # and buffer locally for some more intelligent parsing
+  def run(self):
+    while True:
+      
+      data = self.port.read(1024)
+      self.serialbuffer += data
+      if len(data) > 0:
+        #print "DEBUG: %d bytes in buffer (added %d bytes)" % (len(self.buffer), len(data))
+        #print repr(self.serialbuffer)
+        # We should process any pending data in the buffer
+        self.processResults()
       else:
-        print "OK"
-        return True
+        time.sleep(1)
+        # If we're not ready, re-issue the init command. 
+        # HOWEVER! Make sure NOT to reissue it if we have a good idea of
+        #          what's going on, since it will abort any ongoing
+        #          transmission from the receiver
+        if self.ready == False and self.parsehint == False:
+          self.sendInit()
+        
+
+  # Reads X bytes from buffer
+  def read(self, bytes):
+    remain = self.avail()
+    #print "DEBUG: read() requested %d bytes and we have %d" % (bytes, remain)
+    if bytes > remain:
+      raise YamahaException("Not enough bytes in buffer, wanted %d had %d" % (bytes, remain))
+    
+    result = self.serialbuffer[self.serialpos:self.serialpos+bytes]
+    self.serialpos += bytes
+    return result
+  
+  # Removes the read bytes from the buffer
+  def flush(self):
+    self.serialbuffer = self.serialbuffer[self.serialpos:]
+    self.serialpos = 0
+  
+  # Returns bytes in buffer
+  def avail(self):
+    return len(self.serialbuffer) - self.serialpos
+  
+  # Resets the read pointer, useful when not all data is available
+  def reset(self):
+    self.serialpos = 0
+
+class YamahaException(Exception):
+  pass
