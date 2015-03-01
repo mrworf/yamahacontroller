@@ -1,3 +1,4 @@
+# YamahaController
 A simple REST api for sending Operation Commands to a Yamaha Receiver.
 
 It does not contain much "internal" logic since it's meant to be implemented by
@@ -14,32 +15,32 @@ like so:
 
 Once running, you can access the server on port 5000.
 
-End points:
+## End points:
 
-/
+### /
 Provides model, software, state and port. Useful to see if the daemon is running
 properly.
 
-/operation/<op>
+### /operation/&lt;op&gt;
 Executes a Operation Command on the receiver (power for example)
 
-/operation/<op>/<result>
+### /operation/&lt;op&gt;/&lt;result&gt;
 Executes a Operation Command on the receiver and waits until a result has been
 reported by the receiver. WARNING! There is NO TIMEOUT for how long it will
 wait.
 
-/system/<op>
+### /system/&lt;op&gt;
 Executes a System Command on the receiver (setting absolute volume for example)
 
-/system/<op>/<result>
+### /system/&lt;op&gt;/&lt;result&gt;
 Executes a System Command on the receiver and waits until a result has been
 reported by the receiver. WARNING! There is NO TIMEOUT for how long it will 
 wait.
 
-/report
+### /report
 Retrives all received reports from the receiver
 
-/report/<result>
+### /report/&lt;result&gt;
 Retreives a specific report code. If the code doesn't exist, an error is
 returned. It will NEVER wait for a code.
 
@@ -48,39 +49,42 @@ Calling system or operation where you want a result will cause the daemon to
 flush any existing result code before executing the op. The report endpoint 
 will not flush anything.
 
-Examples:
+## Examples:
 
-Power On zone 1:
-================================================================================
-/operation/E7E  ------->  {
-                            "status": 200, 
-                            "message": "Command sent"
-                          }
+### Power On zone 1:
+GET operation on `/operation/E7E` yields the following reply:
 
-Power On zone 1 with result:
-================================================================================
-/operation/E7E/20  ---->  {
-                            "status": 200, 
-                            "message": "Command sent", 
-                            "result": {
-                              "command": "20", 
-                              "guard": "0", 
-                              "valid": true, 
-                              "type": "0", 
-                              "data": "02"
-                            }
-                          }
+`{
+  "status": 200, 
+  "message": "Command sent"
+}`
 
-Obtain last known state of power
-================================================================================
-/report/20  ----------->  {
-                            "status": 200, 
-                            "message": "Result retreived", 
-                            "result": {
-                              "command": "20", 
-                              "guard": "0", 
-                              "valid": true, 
-                              "type": "0", 
-                              "data": "02"
-                            }
-                          }
+### Power On zone 1 with result:
+GET operation on `/operation/E7E/20` yields the following reply:
+
+`{
+  "status": 200, 
+  "message": "Command sent", 
+  "result": {
+    "command": "20", 
+    "guard": "0", 
+    "valid": true, 
+    "type": "0", 
+    "data": "02"
+  }
+}`
+
+### Obtain last known state of power
+GET operation on `/report/20` yields the following reply:
+
+`{
+  "status": 200, 
+  "message": "Result retreived", 
+  "result": {
+    "command": "20", 
+    "guard": "0", 
+    "valid": true, 
+    "type": "0", 
+    "data": "02"
+  }
+}`
