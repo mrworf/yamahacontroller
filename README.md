@@ -11,7 +11,7 @@ is hooked up to a RX-V1900 using a USB<->Serial interface.
 To run it, edit the server.py to match the correct settings and then execute it
 like so:
 
-  python ./server.py
+  `python ./server.py`
 
 Once running, you can access the server on port 5000.
 

@@ -73,7 +73,7 @@ class YamahaController (threading.Thread):
       a = self.read(1)
       valid = True
       if a != "\x03":
-        print "Error: Not a supported report command"
+        print "Error: Not a supported report command (" + repr(a) + ")"
         valid = False
       result = {"type": category, "guard": guard, "command": cmd, "data": data, "valid": valid}
     except:
