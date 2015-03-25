@@ -201,7 +201,7 @@ class YamahaController (threading.Thread):
     threading.Thread.__init__(self)
     
     self.serialport = serialport
-    self.port = serial.Serial(serialport, baudrate=9600, timeout=0, rtscts=True, xonxoff=False, dsrdtr=False, stopbits=serial.STOPBITS_ONE, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE)
+    self.port = serial.Serial(serialport, baudrate=9600, timeout=0.100, rtscts=True, xonxoff=False, dsrdtr=False, stopbits=serial.STOPBITS_ONE, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE)
     self.state = "unknown"
     self.port.flushInput()
     self.port.flushOutput()
@@ -230,12 +230,13 @@ class YamahaController (threading.Thread):
         # We should process any pending data in the buffer
         self.processResults()
       else:
-        time.sleep(1)
         # If we're not ready, re-issue the init command. 
         # HOWEVER! Make sure NOT to reissue it if we have a good idea of
         #          what's going on, since it will abort any ongoing
         #          transmission from the receiver
         if self.ready == False and self.parsehint == False:
+	  time.sleep(0.4)
+          print "DBG: Issuing init command"
           self.sendInit()
         
 
