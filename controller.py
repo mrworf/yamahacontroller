@@ -24,6 +24,7 @@ class YamahaController (threading.Thread):
   state = "unknown"
   powersave = False
   parsehint = False
+  inwait = False
   
   def parseConfig(self):
     result = None
@@ -134,13 +135,19 @@ class YamahaController (threading.Thread):
   # erase it from the internal list. If no result can be found,
   # None is returned (see what I did there... hehe).
   def getResult(self, result, clear=True, wait=False):
+    self.inwait = True
+    print "DBG: Entering loop"
     while not result in self.reports:
       if not wait:
+        print "DBG: Exiting loop"
+        self.inwait = False
         return None
       #print "Reports does not contain " + result
       #print repr(self.reports)
       time.sleep(0.1) # HORRIBLE!
     
+    print "DBG: Exiting loop"
+    self.inwait = False
     ret = self.reports[result]
     if clear:
       self.clearResult(result)
@@ -221,14 +228,18 @@ class YamahaController (threading.Thread):
   # and buffer locally for some more intelligent parsing
   def run(self):
     while True:
-      
-      data = self.port.read(1024)
+      if self.inwait == True:
+        print "DBG: Pre-read"
+      data = self.port.read(5)
+      if self.inwait == True:
+        print "DBG: Post-read"
       self.serialbuffer += data
       if len(data) > 0:
-        #print "DEBUG: %d bytes in buffer (added %d bytes)" % (len(self.buffer), len(data))
+        print "DEBUG: %d bytes in buffer (added %d bytes)" % (len(self.serialbuffer), len(data))
         #print repr(self.serialbuffer)
         # We should process any pending data in the buffer
         self.processResults()
+        print "DEBUG: %d bytes left in buffer after processing" % (len(self.serialbuffer))
       else:
         # If we're not ready, re-issue the init command. 
         # HOWEVER! Make sure NOT to reissue it if we have a good idea of
