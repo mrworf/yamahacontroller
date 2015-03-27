@@ -40,13 +40,20 @@ def api_operation(data, resultcode):
     'message': "Command sent"
   }
   
+  ret = yamaha.issueCommand(data, resultcode)
+
+  """
   if resultcode is None:
     yamaha.sendOperation(data)
   else:
     yamaha.clearResult(resultcode)
     yamaha.sendOperation(data)
     result["result"] = yamaha.getResult(resultcode, False, True)
-  
+  """
+
+  if ret is not None:
+    result["result"] = ret;
+
   result = jsonify(result)
   result.status_code = 200
   return result
@@ -65,13 +72,18 @@ def api_system(data, resultcode):
     'message': "Command sent"
   }
 
+  ret = yamaha.issueCommand(data, resultcode)
+
+  """
   if resultcode is None:  
     yamaha.sendSystem(data)
   else:
     yamaha.clearResult(resultcode)
     yamaha.sendSystem(data)
     result["result"] = yamaha.getResult(resultcode, False, True)
-  
+  """
+  result["result"] = ret
+
   result = jsonify(result)
   result.status_code = 200
   return result
