@@ -135,28 +135,15 @@ class YamahaController (threading.Thread):
         print "Communication established"
         self.ready = True
 
-  # Obtains one of the results and if clear is true, will also
-  # erase it from the internal list. If no result can be found,
-  # None is returned (see what I did there... hehe).
-  def getResult(self, result, clear=True, wait=False):
-    self.inwait = True
-    print "DBG: Entering loop"
-    while not result in self.reports:
-      if not wait:
-        print "DBG: Exiting loop"
-        self.inwait = False
-        return None
-      #print "Reports does not contain " + result
-      #print repr(self.reports)
-      time.sleep(0.1) # HORRIBLE!
-    
-    print "DBG: Exiting loop"
-    self.inwait = False
-    ret = self.reports[result]
-    if clear:
-      self.clearResult(result)
-      
-    return ret
+  def getResult(self, result):
+    """
+    Get a reported result from the receiver, returns None
+    if the result isn't available.
+    """
+    if result not in self.reports:
+      return None
+
+    return self.reports[result]
 
   def getAllResults(self):
     result = []

@@ -40,19 +40,7 @@ def api_operation(data, resultcode):
     'message': "Command sent"
   }
   
-  ret = yamaha.issueCommand(data, resultcode)
-
-  """
-  if resultcode is None:
-    yamaha.sendOperation(data)
-  else:
-    yamaha.clearResult(resultcode)
-    yamaha.sendOperation(data)
-    result["result"] = yamaha.getResult(resultcode, False, True)
-  """
-
-  if ret is not None:
-    result["result"] = ret;
+  result["result"] = yamaha.issueCommand(data, resultcode)
 
   result = jsonify(result)
   result.status_code = 200
@@ -72,17 +60,7 @@ def api_system(data, resultcode):
     'message': "Command sent"
   }
 
-  ret = yamaha.issueCommand(data, resultcode)
-
-  """
-  if resultcode is None:  
-    yamaha.sendSystem(data)
-  else:
-    yamaha.clearResult(resultcode)
-    yamaha.sendSystem(data)
-    result["result"] = yamaha.getResult(resultcode, False, True)
-  """
-  result["result"] = ret
+  result["result"] = yamaha.issueCommand(data, resultcode)
 
   result = jsonify(result)
   result.status_code = 200
@@ -98,7 +76,7 @@ def api_report(id):
     result["message"] = "Results retreived"  
     result["result"] = yamaha.getAllResults();
   else:  
-    data = yamaha.getResult(id, False, False)
+    data = yamaha.getResult(id)
     if data is None:
       result["status"] = 404
       result["message"] = "No such report available"  
