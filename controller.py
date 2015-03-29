@@ -204,7 +204,7 @@ class YamahaController (threading.Thread):
     if self.active_cmd["ret"] != None:
       self.clearResult(self.active_cmd["ret"])
 
-    if len(self.active_cmd["cmd"]) == 2: # system command
+    if len(self.active_cmd["cmd"]) == 4: # system command
       self.sendSystem(self.active_cmd["cmd"])
     elif len(self.active_cmd["cmd"]) == 3: # operation command
       self.sendOperation(self.active_cmd["cmd"])
