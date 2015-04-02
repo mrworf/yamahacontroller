@@ -5,6 +5,7 @@
 from controller import YamahaController
 from flask import Flask
 from flask import jsonify
+from flask.ext.socketio import SocketIO
 import time
 
 cfg_YamahaPort = "/dev/ttyUSB0"
@@ -26,10 +27,12 @@ def api_root():
     
   return result
 
+
+""" Sends operation commands to the receiver and optionally waits for the result
+"""
 @app.route("/operation/<data>", methods = ["GET"], defaults={'resultcode': None})
 @app.route("/operation/<data>/<resultcode>", methods = ["GET"])
 def api_operation(data, resultcode):
-  # Make sure we don't get unneeded data
   if len(data) != 3:
     result = jsonify({"status":500,"message":"Command must be exactly 3 bytes"})
     result.status_code = 500
@@ -46,10 +49,11 @@ def api_operation(data, resultcode):
   result.status_code = 200
   return result
 
+""" Sends system commands to the receiver and optionally waits for the result
+"""
 @app.route("/system/<data>", methods = ["GET"], defaults = {'resultcode': None})
 @app.route("/system/<data>/<resultcode>", methods = ["GET"])
 def api_system(data, resultcode):
-  # Make sure we don't get unneeded data
   if len(data) != 4:
     result = jsonify({"status":500,"message":"Command must be exactly 4 bytes"})
     result.status_code = 500
@@ -66,6 +70,8 @@ def api_system(data, resultcode):
   result.status_code = 200
   return result
 
+""" Obtains all or one specific report from the receiver
+""" 
 @app.route("/report", methods = ["GET"], defaults={"id": None})
 @app.route("/report/<id>", methods = ["GET"])
 def api_report(id):
