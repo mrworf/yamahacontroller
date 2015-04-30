@@ -5,7 +5,7 @@
 from controller import YamahaController
 from flask import Flask
 from flask import jsonify
-from flask.ext.socketio import SocketIO
+#from flask.ext.socketio import SocketIO
 import time
 
 cfg_YamahaPort = "/dev/ttyUSB0"
