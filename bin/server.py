@@ -7,12 +7,27 @@ from flask import Flask
 from flask import jsonify
 #from flask.ext.socketio import SocketIO
 import time
+import logging
+import argparse
 
-cfg_YamahaPort = "/dev/ttyUSB0"
-cfg_ServerAddr = "0.0.0.0"
+""" Parse it! """
+parser = argparse.ArgumentParser(description="YAMAHA-2-REST Gateway", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--logfile', metavar="FILE", help="Log to file instead of stdout")
+parser.add_argument('--port', default=5000, type=int, help="Port to listen on")
+parser.add_argument('--listen', metavar="ADDRESS", default="0.0.0.0", help="Address to listen on")
+parser.add_argument('--tty', default="/dev/ttyUSB0", help="TTY for Yamaha receiver")
+config = parser.parse_args()
+
+""" Setup logging """
+logging.basicConfig(filename=config.logfile, level=logging.DEBUG, format='%(asctime)s - %(filename)s@%(lineno)d - %(levelname)s - %(message)s')
+
+""" Disable some logging by-default """
+logging.getLogger("Flask-Cors").setLevel(logging.ERROR)
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
 
 app = Flask(__name__)
-yamaha = YamahaController(cfg_YamahaPort)
+yamaha = YamahaController(args.tty)
 
 @app.route("/")
 def api_root():
@@ -98,6 +113,6 @@ def api_report(id):
 if __name__ == "__main__":
   yamaha.init()
   app.debug = True
-  app.run(host=cfg_ServerAddr, use_debugger=False, use_reloader=False)
+  app.run(host=config.listen, port=config.port, use_debugger=False, use_reloader=False)
   #while True:
   #  time.sleep(5)

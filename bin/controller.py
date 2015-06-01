@@ -13,6 +13,7 @@ import serial
 import threading
 import time
 import Queue
+import logging
 
 class YamahaController (threading.Thread):
   serialbuffer = bytes()
@@ -57,7 +58,7 @@ class YamahaController (threading.Thread):
         else:
           self.state = "unknown"
         if config_len > 144 and self.config[144] == "0":
-          print "WARN: RS-232 cannot wake system"
+          logging.warning("RS-232 cannot wake system")
           self.state = "error"
         result = True
     except YamahaException:
@@ -77,7 +78,7 @@ class YamahaController (threading.Thread):
       a = self.read(1)
       valid = True
       if a != "\x03":
-        print "Error: Not a supported report command (" + repr(a) + ")"
+        logging.error("Not a supported report command (" + repr(a) + ")")
         valid = False
       result = {"type": category, "guard": guard, "command": cmd, "data": data, "valid": valid}
     except:
@@ -93,7 +94,7 @@ class YamahaController (threading.Thread):
   # Sends a Operation Command to the receiver
   # (see 3.2 in RX-V1900 RS-232C Protocol)
   def sendOperation(self, cmd):
-    print "INFO: Sending " + cmd + " to receiver"
+    logging.info("Sending " + cmd + " to receiver")
     self.port.write("\x0207" + cmd + "\x03")
     if self.powersave:
       self.port.write("\x0207" + cmd + "\x03")
@@ -101,7 +102,7 @@ class YamahaController (threading.Thread):
   # Sends a System Command to the receiver
   # (see 3.1 in RX-V1900 RS-232C Protocol)
   def sendSystem(self, cmd):
-    print "INFO: Sending " + cmd + " to receiver"
+    logging.info("Sending " + cmd + " to receiver")
     self.port.write("\x022" + cmd + "\x03")
     if self.powersave:
       self.port.write("\x022" + cmd + "\x03")
@@ -122,7 +123,6 @@ class YamahaController (threading.Thread):
         self.config = r["data"]
       elif r["input"] == "result":
         # Store this in a set since only the latest item is of interest
-        #print repr(r)
         self.reports[r["data"]["command"]] = r["data"]
         self.processOngoingCommand()
 
@@ -132,7 +132,7 @@ class YamahaController (threading.Thread):
     # We now need to take correct action, depending on state
     if not self.ready:
       if self.state == "ready" or self.state == "standby" :
-        print "Communication established"
+        logging.info("Communication established")
         self.ready = True
 
   def getResult(self, result):
@@ -209,7 +209,7 @@ class YamahaController (threading.Thread):
     elif len(self.active_cmd["cmd"]) == 3: # operation command
       self.sendOperation(self.active_cmd["cmd"])
     else:
-      print "ERR: Unknown command " + repr(self.active_cmd["cmd"])
+      logging.error("Unknown command " + repr(self.active_cmd["cmd"]))
       self.active_cmd["signal"].set()
       self.active_cmd = None
       return
@@ -259,8 +259,8 @@ class YamahaController (threading.Thread):
     """
     self.daemon = True
     
-    print "Yamaha RX-V - Serial Commander"
-    print "Intializing communication on " + self.serialport
+    logging.info("Yamaha RX-V - Serial Commander")
+    logging.info("Intializing communication on " + self.serialport)
     self.active_cmd = None
     self.flush()
     self.sendInit()
@@ -274,10 +274,10 @@ class YamahaController (threading.Thread):
     while True:
       """
       if self.inwait == True:
-        print "DBG: Pre-read"
+        logging.debug("Pre-read")
       data = self.port.read(5)
       if self.inwait == True:
-        print "DBG: Post-read"
+        logging.debug("Post-read")
       """
       data = self.port.read(1024)
       self.serialbuffer += data
@@ -292,7 +292,7 @@ class YamahaController (threading.Thread):
         #          transmission from the receiver
         if self.ready == False and self.parsehint == False:
           time.sleep(0.4)
-          print "DBG: Issuing init command"
+          logging.debug("Issuing init command")
           self.sendInit()
         else:
           self.processCommand()
