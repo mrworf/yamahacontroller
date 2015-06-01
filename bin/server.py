@@ -27,7 +27,7 @@ logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
 
 app = Flask(__name__)
-yamaha = YamahaController(args.tty)
+yamaha = YamahaController(config.tty)
 
 @app.route("/")
 def api_root():

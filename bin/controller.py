@@ -259,7 +259,7 @@ class YamahaController (threading.Thread):
     """
     self.daemon = True
     
-    logging.info("Yamaha RX-V - Serial Commander")
+    logging.info("Yamaha-2-REST Gateway")
     logging.info("Intializing communication on " + self.serialport)
     self.active_cmd = None
     self.flush()
