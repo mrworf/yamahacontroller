@@ -10,6 +10,10 @@ import time
 import logging
 import argparse
 
+from tornado.wsgi import WSGIContainer
+from tornado.httpserver import HTTPServer
+from tornado.ioloop import IOLoop
+
 """ Parse it! """
 parser = argparse.ArgumentParser(description="YAMAHA-2-REST Gateway", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--logfile', metavar="FILE", help="Log to file instead of stdout")
@@ -113,6 +117,10 @@ def api_report(id):
 if __name__ == "__main__":
   yamaha.init()
   app.debug = True
-  app.run(host=config.listen, port=config.port, use_debugger=False, use_reloader=False)
+  #app.run(host=config.listen, port=config.port, use_debugger=False, use_reloader=False)
   #while True:
   #  time.sleep(5)
+  http_server = HTTPServer(WSGIContainer(app))
+  http_server.listen(config.port)
+  IOLoop.instance().start()
+
