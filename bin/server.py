@@ -62,7 +62,9 @@ def api_operation(data, resultcode):
     'message': "Command sent"
   }
   
-  result["result"] = yamaha.issueCommand(data, resultcode)
+  logging.debug("Sending command to controller")
+  result["result"] = yamaha.issueCommand(data.encode('ascii', 'ignore'), resultcode)
+  logging.debug("Command returned")
 
   result = jsonify(result)
   result.status_code = 200
@@ -83,7 +85,9 @@ def api_system(data, resultcode):
     'message': "Command sent"
   }
 
-  result["result"] = yamaha.issueCommand(data, resultcode)
+  logging.debug("Sending command to controller")
+  result["result"] = yamaha.issueCommand(data.encode('ascii', 'ignore'), resultcode)
+  logging.debug("Command returned")
 
   result = jsonify(result)
   result.status_code = 200
