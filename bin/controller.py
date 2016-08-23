@@ -310,10 +310,10 @@ class YamahaController (threading.Thread):
           time.sleep(0.4)
           logging.debug("Issuing init command")
           self.sendInit()
-        elif len(self.resultListeners):
+        elif len(self.resultListeners) == 0:
           # This must ONLY happen if we're not listening for results
           # since results indicate commands in-flight
-          print "No data, process commands..."
+          #print "No data, process commands..."
           self.processCommand()
 
 
