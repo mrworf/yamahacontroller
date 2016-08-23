@@ -210,6 +210,7 @@ class YamahaController (threading.Thread):
     """
     if self.pending_commands.empty():
       return
+    self.idle = False
     cmd = self.pending_commands.get(False)
 
     if len(cmd["cmd"]) == 4: # system command
@@ -229,12 +230,19 @@ class YamahaController (threading.Thread):
     print "Listeners: " + repr(self.resultListeners)
     for i in self.resultListeners:
       if i["ret"] == result["command"]:
+        self.resultListeners.remove(i)
+        # Mark us idle if we've handled all results that we had subscribers for
+        # This should be thread-safe since any listener is blocked until we
+        # release them via the event.
+        self.idle = len(self.resultListeners) == 0
+
         i["result"] = result
         i["signal"].set()
-        self.resultListeners.remove(i)
+
         print "Removed listener, remaining: "
         print repr(self.resultListeners)
         break
+
 
   def issueCommand(self, command, resultCode):
     """
@@ -249,6 +257,7 @@ class YamahaController (threading.Thread):
       self.resultListeners.append(res)
     self.pending_commands.put(cmd)
     if resultCode is not None:
+      print "|||| Waiting for event"
       evt.wait()
     print "<---- Processing WEB command = %s" % command
     return res["result"]
@@ -275,7 +284,7 @@ class YamahaController (threading.Thread):
 
     logging.info("Yamaha-2-REST Gateway")
     logging.info("Intializing communication on " + self.serialport)
-    self.active_cmd = None
+    self.idle = True
     self.flush()
     self.sendInit()
     self.start()
@@ -310,7 +319,7 @@ class YamahaController (threading.Thread):
           time.sleep(0.4)
           logging.debug("Issuing init command")
           self.sendInit()
-        elif len(self.resultListeners) == 0:
+        elif self.idle:
           # This must ONLY happen if we're not listening for results
           # since results indicate commands in-flight
           #print "No data, process commands..."
