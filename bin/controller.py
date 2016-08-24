@@ -324,6 +324,12 @@ class YamahaController (threading.Thread):
           # since results indicate commands in-flight
           #print "No data, process commands..."
           self.processCommand()
+        else:
+          # So we didn't process any commands, but we didn't see a response either...
+          # See if we can turn into idle mode...
+          self.idle = len(self.resultListeners) == 0
+          print "Empty cycle, can we go idle? " + repr(self.idle)
+
 
 
   # Reads X bytes from buffer
