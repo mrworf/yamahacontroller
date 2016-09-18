@@ -98,10 +98,6 @@ class YamahaController (threading.Thread):
     logging.info("Sending " + cmd + " to receiver")
     self.port.write("\x0207" + cmd + "\x03")
     logging.info("Sent")
-    if self.powersave:
-      logging.info("Powersave, send again")
-      self.port.write("\x0207" + cmd + "\x03")
-      logging.info("Sent")
 
   # Sends a System Command to the receiver
   # (see 3.1 in RX-V1900 RS-232C Protocol)
@@ -109,10 +105,6 @@ class YamahaController (threading.Thread):
     logging.info("Sending " + cmd + " to receiver")
     self.port.write("\x022" + cmd + "\x03")
     logging.info("Sent")
-    if self.powersave:
-      logging.info("Powersave, send again")
-      self.port.write("\x022" + cmd + "\x03")
-      logging.info("Sent")
 
   # Reads until all results have been parsed
   #
@@ -210,7 +202,15 @@ class YamahaController (threading.Thread):
     """
     if self.pending_commands.empty():
       return
+    if self.powersave:
+      logging.info("Reinit before we start sending commands")
+      self.ready = False
+      self.parsehint = False
+      return
+
     self.idle = False
+    self.idlecount = 0
+
     cmd = self.pending_commands.get(False)
 
     if len(cmd["cmd"]) == 4: # system command
@@ -253,7 +253,7 @@ class YamahaController (threading.Thread):
     res = {"result" : None}
     if resultCode is not None:
       evt = threading.Event()
-      res = {"ret" : resultCode, "signal" : evt, "result" : None}
+      res = {"ret" : resultCode, "signal" : evt, "result" : None, "original" : cmd}
       self.resultListeners.append(res)
     self.pending_commands.put(cmd)
     if resultCode is not None:
@@ -270,7 +270,7 @@ class YamahaController (threading.Thread):
 
     self.serialport = serialport
     # Timeout of 0.2s is KEY! Because we must NEVER interrupt the receiver if it's saying something
-    self.port = serial.Serial(serialport, baudrate=9600, timeout=0.200, rtscts=True, xonxoff=False, dsrdtr=False, stopbits=serial.STOPBITS_ONE, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE)
+    self.port = serial.Serial(serialport, baudrate=9600, timeout=0.200, rtscts=False, xonxoff=False, dsrdtr=True, stopbits=serial.STOPBITS_ONE, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE)
     self.state = "unknown"
     self.port.flushInput()
     self.port.flushOutput()
@@ -316,7 +316,12 @@ class YamahaController (threading.Thread):
         #          what's going on, since it will abort any ongoing
         #          transmission from the receiver
         if self.ready == False and self.parsehint == False:
-          time.sleep(0.4)
+          # Avoid inital 0.2s delay upon wakeup
+          if not self.powersave:
+            time.sleep(0.2)
+          else:
+            self.powersave = False
+
           logging.debug("Issuing init command")
           self.sendInit()
         elif self.idle:
@@ -328,7 +333,13 @@ class YamahaController (threading.Thread):
           # So we didn't process any commands, but we didn't see a response either...
           # See if we can turn into idle mode...
           self.idle = len(self.resultListeners) == 0
-          print "Empty cycle, can we go idle? " + repr(self.idle)
+          self.idlecount += 1
+          if self.idlecount > 20 and not self.idle:
+            print "--!!!!!!--> 20 empty cycles and still not idle, forcing reset. These were waiting:"
+            print repr(self.resultListeners)
+            for x in self.resultListeners:
+              x['signal'].set()
+            self.resultListeners = []
 
 
 
