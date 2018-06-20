@@ -262,12 +262,13 @@ class YamahaController (threading.Thread):
     print "<---- Processing WEB command = %s" % command
     return res["result"]
 
-  def __init__(self, serialport):
+  def __init__(self, serialport, cbTerminate):
     """
     Initialize serial port but don't do anything else
     """
     threading.Thread.__init__(self)
 
+    self.cbTerminate = cbTerminate
     self.serialport = serialport
     # Timeout of 0.2s is KEY! Because we must NEVER interrupt the receiver if it's saying something
     self.port = serial.Serial(serialport, baudrate=9600, timeout=0.200, rtscts=False, xonxoff=False, dsrdtr=True, stopbits=serial.STOPBITS_ONE, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE)
@@ -295,15 +296,13 @@ class YamahaController (threading.Thread):
     and buffer locally for some more intelligent parsing
     """
     while True:
-      """
-      if self.inwait == True:
-        logging.debug("Pre-read")
-      data = self.port.read(5)
-      if self.inwait == True:
-        logging.debug("Post-read")
-      """
       #logging.debug("Pre-read")
-      data = self.port.read(1024)
+      try:
+        data = self.port.read(1024)
+      except:
+        logging.error('Problems reading from serial, USB device disconnected?')
+        self.cbTerminate()
+
       #logging.debug("Post-read")
       self.serialbuffer += data
       if len(data) > 0:

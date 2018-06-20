@@ -1,0 +1,10 @@
+[Unit]
+Description=Yamaha serial controller gateway
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/root/yamahacontroller/start.sh
+
+[Install]
+WantedBy=multi-user.target

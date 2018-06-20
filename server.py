@@ -9,6 +9,7 @@ from flask import jsonify
 import time
 import logging
 import argparse
+import sys
 
 from tornado.wsgi import WSGIContainer
 from tornado.httpserver import HTTPServer
@@ -29,9 +30,11 @@ logging.basicConfig(filename=config.logfile, level=logging.DEBUG, format='%(asct
 logging.getLogger("Flask-Cors").setLevel(logging.ERROR)
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
+def abortServer():
+  IOLoop.instance().stop()
 
 app = Flask(__name__)
-yamaha = YamahaController(config.tty)
+yamaha = YamahaController(config.tty, abortServer)
 
 @app.route("/")
 def api_root():
@@ -127,4 +130,4 @@ if __name__ == "__main__":
   http_server = HTTPServer(WSGIContainer(app))
   http_server.listen(config.port)
   IOLoop.instance().start()
-
+  sys.exit(255)
