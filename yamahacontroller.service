@@ -1,9 +1,12 @@
 [Unit]
 Description=Yamaha serial controller gateway
+After=network.target
 
 [Service]
 Type=simple
 Restart=always
+User=root
+WorkingDirectory=/root/yamahacontroller/
 ExecStart=/root/yamahacontroller/start.sh
 
 [Install]
