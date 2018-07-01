@@ -44,7 +44,6 @@ class YamahaController (threading.Thread):
       hsum = self.read(1)
       end = self.read(1)
       if end != '\x03':
-        #print "DEBUG: No end in sight, found " + repr(end) + " as end marker"
         # We need to discard this in a good way,
         # meaning to get rid of the start marker
         self.reset()
@@ -89,7 +88,6 @@ class YamahaController (threading.Thread):
     return result
 
   def sendInit(self):
-    #print "DEBUG: Init comms"
     self.port.write(bytearray([0x11, '0', '0', '0', 0x03]))
 
   # Sends a Operation Command to the receiver
@@ -114,17 +112,17 @@ class YamahaController (threading.Thread):
       if r is None:
         break
       elif r["input"] == "powersave":
-        print "Data from receiver indicate powersave mode"
+        logging.debug("Data from receiver indicate powersave mode")
         self.powersave = True
         if len(self.resultListeners):
-          print "WARNING! Powersave received when we waited for results, did we spam it?"
+          logging.warning('Powersave received when we waited for results, did we spam it?')
         continue
       elif r["input"] == "error":
         continue;
       elif r["input"] == "config":
         self.config = r["data"]
       elif r["input"] == "result":
-        print "Incoming result: " + repr(r["data"])
+        logging.debug("Incoming result: " + repr(r["data"]))
         # Store this in a set since only the latest item is of interest
         self.reports[r["data"]["command"]] = r["data"]
         self.processResultListeners(r["data"])
@@ -226,8 +224,8 @@ class YamahaController (threading.Thread):
     Checks if there is an ongoing command waiting for result and if so,
     delivers it if available. It's on a first come, first serve basis
     """
-    print "process: "  + repr(result)
-    print "Listeners: " + repr(self.resultListeners)
+    logging.debug("process: "  + repr(result))
+    logging.debug("Listeners: " + repr(self.resultListeners))
     for i in self.resultListeners:
       if i["ret"] == result["command"]:
         self.resultListeners.remove(i)
@@ -239,16 +237,14 @@ class YamahaController (threading.Thread):
         i["result"] = result
         i["signal"].set()
 
-        print "Removed listener, remaining: "
-        print repr(self.resultListeners)
+        logging.debug("Removed listener, remaining: " + repr(self.resultListeners))
         break
-
 
   def issueCommand(self, command, resultCode):
     """
     Queue a command for execution and wait for it to return
     """
-    print "----> Processing WEB command = %s" % command
+    logging.debug("Start processing WEB command = %s", command)
     cmd = {"cmd" : command}
     res = {"result" : None}
     if resultCode is not None:
@@ -257,9 +253,9 @@ class YamahaController (threading.Thread):
       self.resultListeners.append(res)
     self.pending_commands.put(cmd)
     if resultCode is not None:
-      print "|||| Waiting for event"
+      logging.debug('Processing: Waiting for event')
       evt.wait()
-    print "<---- Processing WEB command = %s" % command
+    logging.debug("End processing WEB command = %s", command)
     return res["result"]
 
   def __init__(self, serialport, cbTerminate):
@@ -306,9 +302,7 @@ class YamahaController (threading.Thread):
       #logging.debug("Post-read")
       self.serialbuffer += data
       if len(data) > 0:
-        #print "DEBUG: %d bytes in buffer (added %d bytes)" % (len(self.serialbuffer), len(data))
         self.processResults()
-        #print "DEBUG: %d bytes left in buffer after processing" % (len(self.serialbuffer))
       else:
         # If we're not ready, re-issue the init command.
         # HOWEVER! Make sure NOT to reissue it if we have a good idea of
@@ -326,7 +320,6 @@ class YamahaController (threading.Thread):
         elif self.idle:
           # This must ONLY happen if we're not listening for results
           # since results indicate commands in-flight
-          #print "No data, process commands..."
           self.processCommand()
         else:
           # So we didn't process any commands, but we didn't see a response either...
@@ -334,8 +327,7 @@ class YamahaController (threading.Thread):
           self.idle = len(self.resultListeners) == 0
           self.idlecount += 1
           if self.idlecount > 20 and not self.idle:
-            print "--!!!!!!--> 20 empty cycles and still not idle, forcing reset. These were waiting:"
-            print repr(self.resultListeners)
+            logging.warning("20 empty cycles and still not idle, forcing reset. These were waiting: " + repr(self.resultListeners))
             for x in self.resultListeners:
               x['signal'].set()
             self.resultListeners = []
@@ -345,7 +337,6 @@ class YamahaController (threading.Thread):
   # Reads X bytes from buffer
   def read(self, bytes):
     remain = self.avail()
-    #print "DEBUG: read() requested %d bytes and we have %d" % (bytes, remain)
     if bytes > remain:
       raise YamahaException("Not enough bytes in buffer, wanted %d had %d" % (bytes, remain))
 

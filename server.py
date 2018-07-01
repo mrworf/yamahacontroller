@@ -18,13 +18,17 @@ from tornado.ioloop import IOLoop
 """ Parse it! """
 parser = argparse.ArgumentParser(description="YAMAHA-2-REST Gateway", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--logfile', metavar="FILE", help="Log to file instead of stdout")
+parser.add_argument('--debug', action='store_true', default=False, help='Enable loads more logging')
 parser.add_argument('--port', default=5002, type=int, help="Port to listen on")
 parser.add_argument('--listen', metavar="ADDRESS", default="0.0.0.0", help="Address to listen on")
 parser.add_argument('--tty', default="/dev/ttyUSB0", help="TTY for Yamaha receiver")
 config = parser.parse_args()
 
 """ Setup logging """
-logging.basicConfig(filename=config.logfile, level=logging.DEBUG, format='%(asctime)s - %(filename)s@%(lineno)d - %(levelname)s - %(message)s')
+if config.debug:
+  logging.basicConfig(filename=config.logfile, level=logging.DEBUG, format='%(filename)s@%(lineno)d - %(levelname)s - %(message)s')
+else:
+  logging.basicConfig(filename=config.logfile, level=logging.INFO, format='%(filename)s@%(lineno)d - %(levelname)s - %(message)s')
 
 """ Disable some logging by-default """
 logging.getLogger("Flask-Cors").setLevel(logging.ERROR)
