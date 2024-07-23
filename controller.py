@@ -12,11 +12,11 @@
 import serial
 import threading
 import time
-import Queue
+import queue
 import logging
 
 class YamahaController (threading.Thread):
-  serialbuffer = bytes()
+  serialbuffer = ''
   serialpos = 0
   ready = False
   reports = {}
@@ -28,7 +28,7 @@ class YamahaController (threading.Thread):
   parsehint = False
   inwait = False
 
-  pending_commands = Queue.Queue()
+  pending_commands = queue.Queue()
   resultListeners = []
 
   def parseConfig(self):
@@ -88,20 +88,20 @@ class YamahaController (threading.Thread):
     return result
 
   def sendInit(self):
-    self.port.write(bytearray([0x11, '0', '0', '0', 0x03]))
+    self.port.write('\x11000\x03'.encode('ascii'))
 
   # Sends a Operation Command to the receiver
   # (see 3.2 in RX-V1900 RS-232C Protocol)
   def sendOperation(self, cmd):
-    logging.info("Sending " + cmd + " to receiver")
-    self.port.write("\x0207" + cmd + "\x03")
+    logging.info(f"Sending {cmd} to receiver")
+    self.port.write(("\x0207" + cmd.decode('ascii') + "\x03").encode('ascii'))
     logging.info("Sent")
 
   # Sends a System Command to the receiver
   # (see 3.1 in RX-V1900 RS-232C Protocol)
   def sendSystem(self, cmd):
-    logging.info("Sending " + cmd + " to receiver")
-    self.port.write("\x022" + cmd + "\x03")
+    logging.info(f"Sending {cmd} to receiver")
+    self.port.write(("\x022" + cmd.decode('ascii') + "\x03").encode('ascii'))
     logging.info("Sent")
 
   # Reads until all results have been parsed
@@ -294,7 +294,7 @@ class YamahaController (threading.Thread):
     while True:
       #logging.debug("Pre-read")
       try:
-        data = self.port.read(1024)
+        data = self.port.read(1024).decode('ascii')
       except:
         logging.error('Problems reading from serial, USB device disconnected?')
         self.cbTerminate()
